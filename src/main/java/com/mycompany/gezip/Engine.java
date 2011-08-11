@@ -5,11 +5,14 @@
 
 package com.mycompany.gezip;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import sun.audio.AudioDataStream;
 
 /**
  *
@@ -19,6 +22,9 @@ public class Engine {
 
 	final int frameAdrSize = 16;
 	final int frameSize = 1 << frameAdrSize;
+
+	final int lengthSize = 8;
+	final int maxLength = 1 << lengthSize;
 
 	public static class Word {
 		public boolean ref = false;
@@ -53,13 +59,13 @@ public class Engine {
 
 	}
 
-	public static Word searchInFrame(int[] frame, int framePos, int[] source, int sourcePos, int sourceSize) {
+	public Word searchInFrame(int[] frame, int framePos, int[] source, int sourcePos, int sourceSize) {
 		Word bestWord = null;
 
 		
 		for (int i=0; i<framePos-1; i++) {
 			int j = 0;
-			while (i+j<framePos && sourcePos+j < sourceSize && frame[i+j] == source[sourcePos+j]) {
+			while (j < maxLength && i+j<framePos && sourcePos+j < sourceSize && frame[i+j] == source[sourcePos+j]) {
 				j++;
 			}
 			if (j < 2) continue; // one matching byte doesn't help us
@@ -79,7 +85,7 @@ public class Engine {
 		} else {
 			bos.write(1, 1);
 			bos.write(word.start, frameAdrSize);
-			bos.write(word.length, frameAdrSize);
+			bos.write(word.length, lengthSize);
 		}
 	}
 
@@ -107,11 +113,13 @@ public class Engine {
 		int sourceSize = 0;
 		int framePos = 0;
 		int sourcePos = 0;
-		int n = 10;
 
 		while (true) {
 
 			sourceSize = readStream(inputStream, source, frameSize);
+			sourcePos = 0;
+			framePos = 0;
+
 			if (sourceSize == 0) break;
 
 			while (sourcePos < sourceSize) {
@@ -131,21 +139,6 @@ public class Engine {
 					framePos++;
 					sourcePos++;
 				}
-
-				if (framePos == frameSize) {
-					framePos = 0;
-				}
-
-				if (frameSize - sourcePos < framePos) {					
-					for (int i=sourcePos, j=0; i<sourceSize; i++, j++) {
-						source[j] = source[i];
-					}
-					sourceSize -= sourcePos;
-					sourcePos = 0;
-
-					readStream(inputStream, source, frameSize-sourceSize);
-
-				}
 			}			
 		}
 		bos.flush();
@@ -162,8 +155,8 @@ public class Engine {
 		} else {
 			if (!bis.canRead(frameAdrSize)) return null;
 			int start = bis.read(frameAdrSize);
-			if (!bis.canRead(frameAdrSize)) return null;
-			int length = bis.read(frameAdrSize);
+			if (!bis.canRead(lengthSize)) return null;
+			int length = bis.read(lengthSize);
 			return new Word(start, length);
 		}		
 	}
@@ -202,5 +195,27 @@ public class Engine {
 		writeStream(outputStream, frame, framePos);
 	}
 
+	public byte[] compress(InputStream inputStream) throws IOException {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		compress(inputStream, out);
+		return out.toByteArray();
+	}
+
+	public byte[] compress(byte[] in) throws IOException {
+		ByteArrayInputStream inStream = new ByteArrayInputStream(in);
+		return compress(inStream);
+	}
+
+
+	public byte[] decompress(InputStream inputStream) throws IOException {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		decompress(inputStream, out);
+		return out.toByteArray();
+	}
+
+	public byte[] decompress(byte[] in) throws IOException {
+		ByteArrayInputStream inStream = new ByteArrayInputStream(in);
+		return decompress(inStream);
+	}
 
 }
