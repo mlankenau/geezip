@@ -20,10 +20,10 @@ import sun.audio.AudioDataStream;
  */
 public class Engine {
 
-	final int frameAdrSize = 16;
+	final int frameAdrSize = 19;
 	final int frameSize = 1 << frameAdrSize;
 
-	final int lengthSize = 8;
+	final int lengthSize = 4;
 	final int maxLength = 1 << lengthSize;
 
 	public static class Word {
@@ -65,7 +65,7 @@ public class Engine {
 		
 		for (int i=0; i<framePos-1; i++) {
 			int j = 0;
-			while (j < maxLength && i+j<framePos && sourcePos+j < sourceSize && frame[i+j] == source[sourcePos+j]) {
+			while (j < maxLength-1 && i+j<framePos && sourcePos+j < sourceSize && frame[i+j] == source[sourcePos+j]) {
 				j++;
 			}
 			if (j < 2) continue; // one matching byte doesn't help us
